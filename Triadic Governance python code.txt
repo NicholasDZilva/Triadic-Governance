@@ -1,0 +1,1316 @@
+Python Implementation: Triadic Governance AI System
+A Coherence-Aligned AI for Governance Decision Support
+"""
+Triadic Governance AI System
+============================
+
+An implementation of coherence-aligned AI (Role 3 in Triadic Governance).
+
+This system does NOT make decisions or optimize outcomes.
+It provides structural analysis, detects drift, and forces comparison
+between institutional solutions and problem-space alternatives.
+
+Core Optimization Targets:
+1. Coherence (alignment between stated objectives and actions)
+2. Baseline Preservation (maintaining reversibility, optionality, exit capacity)
+3. Human Agency (preserving decision authority and meaningful choice)
+
+Author: Nicholas D'Zilva
+Framework: Triadic Governance + Making Structure Visible
+License: MIT
+"""
+
+import numpy as np
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional, Tuple
+from enum import Enum
+import json
+from datetime import datetime
+
+
+# ============================================================================
+# PART 1: CORE OPTIMIZATION FRAMEWORK
+# ============================================================================
+
+class OptimizationTarget(Enum):
+    """What the system optimizes for (NOT what it decides)"""
+    COHERENCE = "coherence"
+    BASELINE_PRESERVATION = "baseline_preservation"
+    HUMAN_AGENCY = "human_agency"
+
+
+@dataclass
+class BaselineMetrics:
+    """
+    Quantified baseline preservation metrics from Political/Economic Baselines paper.
+    All metrics normalized 0-1, higher = better baseline preservation.
+    """
+    # Political Baseline Index (PBI) components
+    sunset_ratio: float = 0.0  # % policies with expiration clauses
+    exit_options: float = 0.0  # Number of viable alternatives available
+    accountability_lag: float = 0.0  # Inverse of time between decision and consequence
+    narrative_plurality: float = 0.0  # Inverse HHI of information sources
+    revocability_score: float = 0.0  # % decisions reversible within one cycle
+    
+    # Economic Baseline Index (EBI) components
+    wage_ratio: float = 0.0  # Median wage / cost of living
+    debt_independence: float = 0.0  # % population surviving without credit
+    recovery_time: float = 0.0  # Inverse of bankruptcy recovery time
+    market_concentration: float = 0.0  # Inverse HHI of essential goods
+    productive_decoupling: float = 0.0  # Productive wages / financial returns
+    
+    # Crisis Response Baseline Index (CRBI) components
+    ciat: float = 0.0  # Critical Infrastructure Activation Threshold
+    pti: float = 0.0  # Population Trust Index
+    sar: float = 0.0  # Systemic Alert Ratio (inverted, lower is better)
+    
+    def calculate_pbi(self, weights: Optional[Dict[str, float]] = None) -> float:
+        """Calculate Political Baseline Index"""
+        if weights is None:
+            weights = {
+                'sunset': 0.25, 'exit': 0.20, 'accountability': 0.20,
+                'plurality': 0.15, 'revocability': 0.20
+            }
+        
+        return (
+            weights['sunset'] * self.sunset_ratio +
+            weights['exit'] * self.exit_options +
+            weights['accountability'] * self.accountability_lag +
+            weights['plurality'] * self.narrative_plurality +
+            weights['revocability'] * self.revocability_score
+        )
+    
+    def calculate_ebi(self, weights: Optional[Dict[str, float]] = None) -> float:
+        """Calculate Economic Baseline Index"""
+        if weights is None:
+            weights = {
+                'wage': 0.25, 'debt': 0.20, 'recovery': 0.20,
+                'market': 0.15, 'decoupling': 0.20
+            }
+        
+        return (
+            weights['wage'] * self.wage_ratio +
+            weights['debt'] * self.debt_independence +
+            weights['recovery'] * self.recovery_time +
+            weights['market'] * self.market_concentration +
+            weights['decoupling'] * self.productive_decoupling
+        )
+    
+    def calculate_crbi(self) -> float:
+        """Calculate Crisis Response Baseline Index"""
+        # SAR is inverted (high SAR = low baseline)
+        return (self.ciat + (1 - self.sar) + self.pti) / 3
+    
+    def overall_baseline_score(self) -> float:
+        """Aggregate baseline preservation score"""
+        pbi = self.calculate_pbi()
+        ebi = self.calculate_ebi()
+        crbi = self.calculate_crbi()
+        
+        # Equal weighting, can be adjusted
+        return (pbi + ebi + crbi) / 3
+
+
+@dataclass
+class CoherenceMetrics:
+    """
+    Measures alignment between stated objectives and observed behavior.
+    Based on TSSL v2 and Perfect Misalignment frameworks.
+    """
+    stated_objective: str = ""
+    observed_behavior: str = ""
+    
+    # Quantified coherence (0-1, higher = better)
+    statement_action_divergence: float = 0.0  # |stated - observed|
+    resource_allocation_alignment: float = 0.0  # Do resources match claims?
+    temporal_consistency: float = 0.0  # Consistent over time?
+    
+    # Integrity signal (TSSL v2)
+    behavior_variance: float = 0.0  # Low variance = high integrity
+    
+    # Narrative maintenance cost
+    narrative_cost: float = 0.0  # Overhead from maintaining inconsistent story
+    
+    def calculate_coherence_score(self) -> float:
+        """
+        Overall coherence score (0-1).
+        1.0 = perfect alignment between words and actions
+        0.0 = complete divergence
+        """
+        # Integrity = 1 - variance (low variance = high integrity)
+        integrity = np.clip(1 - self.behavior_variance, 0, 1)
+        
+        # Overall coherence
+        coherence = (
+            (1 - self.statement_action_divergence) * 0.4 +
+            self.resource_allocation_alignment * 0.3 +
+            self.temporal_consistency * 0.2 +
+            integrity * 0.1
+        )
+        
+        return np.clip(coherence, 0, 1)
+    
+    def calculate_narrative_cost(self, divergence: float, cost_factor: float = 0.1) -> float:
+        """Cost of maintaining narrative when actions diverge from claims"""
+        return divergence * cost_factor
+
+
+@dataclass
+class AgencyMetrics:
+    """
+    Measures preservation of human agency and meaningful choice.
+    Based on Distributed Resilience and constituency inversion concepts.
+    """
+    # Decision authority (0-1, higher = more human agency)
+    human_decision_authority: float = 0.0  # % decisions made by humans vs automated
+    appeal_mechanism_access: float = 0.0  # Can decisions be appealed?
+    exit_capacity: float = 0.0  # Can participants leave system?
+    alternative_availability: float = 0.0  # Are non-algorithmic options available?
+    
+    # Constituency inversion (problem-space actors' role)
+    problem_space_input: float = 0.0  # Do affected parties generate solutions?
+    forced_comparison: float = 0.0  # Must institutions compare alternatives?
+    
+    # Consent and participation
+    opt_in_vs_mandatory: float = 0.0  # 1.0 = fully opt-in, 0.0 = mandatory
+    informed_consent_quality: float = 0.0  # Quality of information for decisions
+    
+    def calculate_agency_score(self) -> float:
+        """
+        Overall agency preservation score (0-1).
+        1.0 = maximum human agency preserved
+        0.0 = complete automation/coercion
+        """
+        return (
+            self.human_decision_authority * 0.25 +
+            self.appeal_mechanism_access * 0.15 +
+            self.exit_capacity * 0.20 +
+            self.alternative_availability * 0.15 +
+            self.problem_space_input * 0.10 +
+            self.forced_comparison * 0.10 +
+            self.opt_in_vs_mandatory * 0.05
+        )
+
+
+# ============================================================================
+# PART 2: SOLUTION COMPARISON ENGINE
+# ============================================================================
+
+@dataclass
+class Solution:
+    """
+    Represents a proposed solution (institutional or problem-space).
+    """
+    name: str
+    source: str  # "institutional" or "problem_space"
+    description: str
+    
+    # Predicted impacts
+    baseline_impact: BaselineMetrics
+    coherence_assessment: CoherenceMetrics
+    agency_impact: AgencyMetrics
+    
+    # Reversibility
+    reversibility_score: float = 0.0  # 0-1, can it be undone?
+    time_to_reversal: Optional[float] = None  # Days/cycles to reverse
+    reversal_cost: Optional[float] = None  # Estimated cost to undo
+    
+    # Implementation
+    implementation_complexity: float = 0.0  # 0-1, higher = more complex
+    resource_requirements: Dict[str, float] = field(default_factory=dict)
+    
+    # Metadata
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    
+    def overall_score(self, optimization_weights: Dict[str, float]) -> float:
+        """
+        Calculate overall score based on optimization targets.
+        
+        optimization_weights: {
+            'coherence': 0.33,
+            'baseline': 0.33,
+            'agency': 0.34
+        }
+        """
+        coherence = self.coherence_assessment.calculate_coherence_score()
+        baseline = self.baseline_impact.overall_baseline_score()
+        agency = self.agency_impact.calculate_agency_score()
+        
+        # Penalize irreversibility
+        reversibility_penalty = 1 - self.reversibility_score
+        
+        score = (
+            coherence * optimization_weights.get('coherence', 0.33) +
+            baseline * optimization_weights.get('baseline', 0.33) +
+            agency * optimization_weights.get('agency', 0.34)
+        )
+        
+        # Apply reversibility penalty (irreversible solutions score lower)
+        score = score * (1 - reversibility_penalty * 0.3)
+        
+        return np.clip(score, 0, 1)
+
+
+class SolutionComparator:
+    """
+    Performs side-by-side comparison of solutions.
+    This is the core mechanism of Triadic Governance.
+    """
+    
+    def __init__(
+        self,
+        optimization_weights: Optional[Dict[str, float]] = None
+    ):
+        if optimization_weights is None:
+            # Default: equal weighting
+            optimization_weights = {
+                'coherence': 0.33,
+                'baseline': 0.33,
+                'agency': 0.34
+            }
+        self.optimization_weights = optimization_weights
+    
+    def compare_solutions(
+        self,
+        solutions: List[Solution],
+        verbose: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Perform forced comparison between solutions.
+        
+        Returns comparison analysis including:
+        - Scores for each solution
+        - Trade-off analysis
+        - Recommendations (but NOT decisions)
+        """
+        if len(solutions) < 2:
+            raise ValueError("Need at least 2 solutions to compare")
+        
+        comparisons = []
+        
+        for solution in solutions:
+            score = solution.overall_score(self.optimization_weights)
+            
+            comparison = {
+                'name': solution.name,
+                'source': solution.source,
+                'overall_score': score,
+                'coherence': solution.coherence_assessment.calculate_coherence_score(),
+                'baseline': solution.baseline_impact.overall_baseline_score(),
+                'agency': solution.agency_impact.calculate_agency_score(),
+                'reversibility': solution.reversibility_score,
+                'complexity': solution.implementation_complexity
+            }
+            
+            comparisons.append(comparison)
+        
+        # Sort by overall score
+        comparisons.sort(key=lambda x: x['overall_score'], reverse=True)
+        
+        # Generate trade-off analysis
+        trade_offs = self._analyze_trade_offs(solutions)
+        
+        # Generate structural observations
+        observations = self._generate_observations(solutions, comparisons)
+        
+        result = {
+            'comparisons': comparisons,
+            'trade_offs': trade_offs,
+            'observations': observations,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        if verbose:
+            self._print_comparison(result)
+        
+        return result
+    
+    def _analyze_trade_offs(self, solutions: List[Solution]) -> List[str]:
+        """Identify explicit trade-offs between solutions"""
+        trade_offs = []
+        
+        # Example trade-offs
+        for i, sol_a in enumerate(solutions):
+            for sol_b in solutions[i+1:]:
+                coherence_diff = (
+                    sol_a.coherence_assessment.calculate_coherence_score() -
+                    sol_b.coherence_assessment.calculate_coherence_score()
+                )
+                
+                baseline_diff = (
+                    sol_a.baseline_impact.overall_baseline_score() -
+                    sol_b.baseline_impact.overall_baseline_score()
+                )
+                
+                agency_diff = (
+                    sol_a.agency_impact.calculate_agency_score() -
+                    sol_b.agency_impact.calculate_agency_score()
+                )
+                
+                if abs(coherence_diff) > 0.2 or abs(baseline_diff) > 0.2 or abs(agency_diff) > 0.2:
+                    trade_off = (
+                        f"{sol_a.name} vs {sol_b.name}: "
+                        f"Coherence {'higher' if coherence_diff > 0 else 'lower'} ({abs(coherence_diff):.2f}), "
+                        f"Baseline {'higher' if baseline_diff > 0 else 'lower'} ({abs(baseline_diff):.2f}), "
+                        f"Agency {'higher' if agency_diff > 0 else 'lower'} ({abs(agency_diff):.2f})"
+                    )
+                    trade_offs.append(trade_off)
+        
+        return trade_offs
+    
+    def _generate_observations(
+        self,
+        solutions: List[Solution],
+        comparisons: List[Dict]
+    ) -> List[str]:
+        """Generate structural observations about the solution space"""
+        observations = []
+        
+        # Check if institutional solution dominates
+        institutional = [c for c in comparisons if c['source'] == 'institutional']
+        problem_space = [c for c in comparisons if c['source'] == 'problem_space']
+        
+        if institutional and problem_space:
+            inst_avg = np.mean([c['overall_score'] for c in institutional])
+            prob_avg = np.mean([c['overall_score'] for c in problem_space])
+            
+            if inst_avg > prob_avg + 0.2:
+                observations.append(
+                    f"Institutional solutions score significantly higher ({inst_avg:.2f} vs {prob_avg:.2f}). "
+                    "Verify this reflects genuine superiority, not optimization for institutional metrics."
+                )
+            elif prob_avg > inst_avg + 0.2:
+                observations.append(
+                    f"Problem-space solutions score significantly higher ({prob_avg:.2f} vs {inst_avg:.2f}). "
+                    "If institutional solution chosen, justification required for why higher-scoring "
+                    "alternative was rejected."
+                )
+        
+        # Check for reversibility concerns
+        low_reversibility = [s for s in solutions if s.reversibility_score < 0.3]
+        if low_reversibility:
+            observations.append(
+                f"WARNING: {len(low_reversibility)} solution(s) have low reversibility (<0.3). "
+                "Irreversible interventions require demonstrated reversal pathway before deployment."
+            )
+        
+        # Check for baseline erosion
+        baseline_erosion = [
+            s for s in solutions 
+            if s.baseline_impact.overall_baseline_score() < 0.5
+        ]
+        if baseline_erosion:
+            observations.append(
+                f"ALERT: {len(baseline_erosion)} solution(s) would erode baselines below 0.5 threshold. "
+                "Baseline erosion may prevent error detection and adaptation."
+            )
+        
+        # Check for agency reduction
+        low_agency = [s for s in solutions if s.agency_impact.calculate_agency_score() < 0.4]
+        if low_agency:
+            observations.append(
+                f"CONCERN: {len(low_agency)} solution(s) significantly reduce human agency (<0.4). "
+                "Agency reduction should be explicitly justified and reversible."
+            )
+        
+        return observations
+    
+    def _print_comparison(self, result: Dict[str, Any]):
+        """Pretty print comparison results"""
+        print("\n" + "="*80)
+        print("TRIADIC GOVERNANCE: SOLUTION COMPARISON")
+        print("="*80)
+        
+        print("\nSOLUTION RANKINGS:")
+        print("-" * 80)
+        for i, comp in enumerate(result['comparisons'], 1):
+            print(f"\n{i}. {comp['name']} (Source: {comp['source']})")
+            print(f"   Overall Score: {comp['overall_score']:.3f}")
+            print(f"   Coherence: {comp['coherence']:.3f} | "
+                  f"Baseline: {comp['baseline']:.3f} | "
+                  f"Agency: {comp['agency']:.3f}")
+            print(f"   Reversibility: {comp['reversibility']:.3f} | "
+                  f"Complexity: {comp['complexity']:.3f}")
+        
+        if result['trade_offs']:
+            print("\nTRADE-OFF ANALYSIS:")
+            print("-" * 80)
+            for trade_off in result['trade_offs']:
+                print(f"• {trade_off}")
+        
+        if result['observations']:
+            print("\nSTRUCTURAL OBSERVATIONS:")
+            print("-" * 80)
+            for obs in result['observations']:
+                print(f"• {obs}")
+        
+        print("\n" + "="*80)
+        print("NOTE: This is DIAGNOSTIC output, not a decision.")
+        print("Human decision-makers must evaluate trade-offs and choose based on context.")
+        print("="*80 + "\n")
+
+
+# ============================================================================
+# PART 3: DRIFT DETECTION ENGINE
+# ============================================================================
+
+class DriftDetector:
+    """
+    Detects when systems are drifting from stated objectives or eroding baselines.
+    Based on Constraint by Simulation and baseline erosion concepts.
+    """
+    
+    def __init__(
+        self,
+        baseline_threshold: float = 0.5,
+        coherence_threshold: float = 0.6,
+        window_size: int = 10
+    ):
+        self.baseline_threshold = baseline_threshold
+        self.coherence_threshold = coherence_threshold
+        self.window_size = window_size
+        
+        # Historical data
+        self.baseline_history: List[float] = []
+        self.coherence_history: List[float] = []
+        self.agency_history: List[float] = []
+    
+    def update(
+        self,
+        baseline_score: float,
+        coherence_score: float,
+        agency_score: float
+    ):
+        """Add new measurements"""
+        self.baseline_history.append(baseline_score)
+        self.coherence_history.append(coherence_score)
+        self.agency_history.append(agency_score)
+        
+        # Keep only recent window
+        if len(self.baseline_history) > self.window_size:
+            self.baseline_history = self.baseline_history[-self.window_size:]
+            self.coherence_history = self.coherence_history[-self.window_size:]
+            self.agency_history = self.agency_history[-self.window_size:]
+    
+    def detect_drift(self) -> Dict[str, Any]:
+        """
+        Detect if system is drifting.
+        
+        Returns:
+        - drift_detected: bool
+        - drift_type: str (baseline, coherence, agency, or multiple)
+        - severity: float (0-1)
+        - recommendations: List[str]
+        """
+        if len(self.baseline_history) < 3:
+            return {
+                'drift_detected': False,
+                'message': 'Insufficient data for drift detection'
+            }
+        
+        alerts = []
+        severity = 0.0
+        
+        # Check baseline erosion
+        baseline_trend = self._calculate_trend(self.baseline_history)
+        current_baseline = self.baseline_history[-1]
+        
+        if current_baseline < self.baseline_threshold: alerts.append('baseline_threshold_breach')
+            severity = max(severity, 1 - current_baseline)
+        
+        if baseline_trend < -0.05:  # Declining
+            alerts.append('baseline_erosion_trend')
+            severity = max(severity, abs(baseline_trend))
+        
+        # Check coherence degradation
+        coherence_trend = self._calculate_trend(self.coherence_history)
+        current_coherence = self.coherence_history[-1]
+        
+        if current_coherence < self.coherence_threshold:
+            alerts.append('coherence_threshold_breach')
+            severity = max(severity, 1 - current_coherence)
+        
+        if coherence_trend < -0.05:
+            alerts.append('coherence_degradation_trend')
+            severity = max(severity, abs(coherence_trend))
+        
+        # Check agency reduction
+        agency_trend = self._calculate_trend(self.agency_history)
+        current_agency = self.agency_history[-1]
+        
+        if current_agency < 0.4:  # Critical threshold
+            alerts.append('agency_critical')
+            severity = max(severity, 1 - current_agency)
+        
+        if agency_trend < -0.05:
+            alerts.append('agency_reduction_trend')
+            severity = max(severity, abs(agency_trend))
+        
+        # Generate recommendations
+        recommendations = self._generate_recommendations(alerts)
+        
+        return {
+            'drift_detected': len(alerts) > 0,
+            'alerts': alerts,
+            'severity': severity,
+            'current_state': {
+                'baseline': current_baseline,
+                'coherence': current_coherence,
+                'agency': current_agency
+            },
+            'trends': {
+                'baseline': baseline_trend,
+                'coherence': coherence_trend,
+                'agency': agency_trend
+            },
+            'recommendations': recommendations
+        }
+    
+    def _calculate_trend(self, data: List[float]) -> float:
+        """
+        Calculate trend (simple linear regression slope).
+        Positive = improving, Negative = degrading
+        """
+        if len(data) < 2:
+            return 0.0
+        
+        x = np.arange(len(data))
+        y = np.array(data)
+        
+        # Simple linear regression
+        slope = np.polyfit(x, y, 1)[0]
+        return slope
+    
+    def _generate_recommendations(self, alerts: List[str]) -> List[str]:
+        """Generate actionable recommendations based on alerts"""
+        recommendations = []
+        
+        if 'baseline_threshold_breach' in alerts or 'baseline_erosion_trend' in alerts:
+            recommendations.append(
+                "URGENT: Baseline erosion detected. Implement reversibility checks. "
+                "Review recent decisions for sunset clauses and exit options."
+            )
+        
+        if 'coherence_threshold_breach' in alerts or 'coherence_degradation_trend' in alerts:
+            recommendations.append(
+                "Coherence degrading: Resource allocation diverging from stated objectives. "
+                "Perform audit of optimization targets vs claimed goals."
+            )
+        
+        if 'agency_critical' in alerts or 'agency_reduction_trend' in alerts:
+            recommendations.append(
+                "CRITICAL: Human agency significantly reduced. "
+                "Restore appeal mechanisms, exit options, and decision authority."
+            )
+        
+        if len(alerts) >= 3:
+            recommendations.append(
+                "SYSTEMIC DRIFT: Multiple indicators breached. "
+                "System may have lost error-detection capacity. "
+                "Consider forced comparison with problem-space alternatives."
+            )
+        
+        return recommendations
+
+
+# ============================================================================
+# PART 4: TRIADIC GOVERNANCE AI ORCHESTRATOR
+# ============================================================================
+
+class TriadicGovernanceAI:
+    """
+    Main orchestrator for triadic governance AI system.
+    
+    This AI does NOT make decisions. It:
+    1. Performs coherence analysis
+    2. Measures baseline preservation
+    3. Tracks agency impacts
+    4. Forces comparison between solutions
+    5. Detects drift over time
+    
+    Role: Coherence-Aligned AI (Role 3 in Triadic Governance)
+    """
+    
+    def __init__(
+        self,
+        optimization_weights: Optional[Dict[str, float]] = None,
+        baseline_threshold: float = 0.5,
+        coherence_threshold: float = 0.6
+    ):
+        self.comparator = SolutionComparator(optimization_weights)
+        self.drift_detector = DriftDetector(baseline_threshold, coherence_threshold)
+        
+        # Audit trail
+        self.analysis_history: List[Dict] = []
+    
+    def analyze_decision(
+        self,
+        institutional_solution: Solution,
+        problem_space_alternatives: List[Solution],
+        context: Optional[Dict[str, Any]] = None,
+        verbose: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Perform triadic governance analysis.
+        
+        Args:
+            institutional_solution: Official/institutional proposed solution
+            problem_space_alternatives: Solutions from affected communities
+            context: Additional context about the decision
+            verbose: Print detailed output
+        
+        Returns:
+            Complete analysis including comparison, drift detection, recommendations
+        """
+        # Combine all solutions
+        all_solutions = [institutional_solution] + problem_space_alternatives
+        
+        # Perform forced comparison
+        comparison = self.comparator.compare_solutions(all_solutions, verbose=verbose)
+        
+        # Update drift detector with current state
+        # Use top solution's metrics for tracking
+        top_solution = all_solutions[0]  # After sorting in comparator
+        for comp in comparison['comparisons']:
+            if comp['name'] == top_solution.name:
+                self.drift_detector.update(
+                    comp['baseline'],
+                    comp['coherence'],
+                    comp['agency']
+                )
+                break
+        
+        # Detect drift
+        drift_analysis = self.drift_detector.detect_drift()
+        
+        # Generate final recommendations
+        final_recommendations = self._generate_final_recommendations(
+            comparison,
+            drift_analysis,
+            institutional_solution,
+            problem_space_alternatives
+        )
+        
+        # Create audit record
+        analysis = {
+            'timestamp': datetime.now().isoformat(),
+            'context': context,
+            'comparison': comparison,
+            'drift_analysis': drift_analysis,
+            'recommendations': final_recommendations,
+            'institutional_solution': institutional_solution.name,
+            'alternatives_considered': len(problem_space_alternatives)
+        }
+        
+        self.analysis_history.append(analysis)
+        
+        if verbose:
+            self._print_final_analysis(analysis)
+        
+        return analysis
+    
+    def _generate_final_recommendations(
+        self,
+        comparison: Dict,
+        drift_analysis: Dict,
+        institutional: Solution,
+        alternatives: List[Solution]
+    ) -> List[str]:
+        """Generate final recommendations for human decision-makers"""
+        recommendations = []
+        
+        # Check if institutional solution is top-ranked
+        top_solution = comparison['comparisons'][0]
+        
+        if top_solution['source'] != 'institutional':
+            recommendations.append(
+                f"TOP-RANKED SOLUTION: '{top_solution['name']}' (problem-space) "
+                f"scores higher than institutional solution. "
+                f"If institutional solution is chosen, explicit justification required."
+            )
+        
+        # Add drift recommendations
+        if drift_analysis.get('drift_detected'):
+            recommendations.extend(drift_analysis['recommendations'])
+        
+        # Reversibility warnings
+        if institutional.reversibility_score < 0.3:
+            recommendations.append(
+                "WARNING: Institutional solution has low reversibility. "
+                "Per GIC framework, irreversible interventions require demonstrated "
+                "reversal pathway before deployment."
+            )
+        
+        # Baseline preservation
+        inst_baseline = institutional.baseline_impact.overall_baseline_score()
+        if inst_baseline < 0.5:
+            recommendations.append(
+                f"CONCERN: Institutional solution would reduce baseline to {inst_baseline:.2f}. "
+                "Systems below 0.5 baseline threshold may lose error-detection capacity."
+            )
+        
+        # Agency preservation
+        inst_agency = institutional.agency_impact.calculate_agency_score()
+        if inst_agency < 0.4:
+            recommendations.append(
+                f"ALERT: Institutional solution reduces agency to {inst_agency:.2f}. "
+                "Significant agency reduction should include sunset clauses and appeal mechanisms."
+            )
+        
+        # Comparison completeness
+        if len(alternatives) == 0:
+            recommendations.append(
+                "WARNING: No problem-space alternatives provided for comparison. "
+                "Triadic governance requires alternatives from affected communities."
+            )
+        
+        return recommendations
+    
+    def _print_final_analysis(self, analysis: Dict):
+        """Print final analysis summary"""
+        print("\n" + "="*80)
+        print("TRIADIC GOVERNANCE AI: FINAL ANALYSIS")
+        print("="*80)
+        
+        if analysis['drift_analysis'].get('drift_detected'):
+            print("\n⚠️  DRIFT DETECTED")
+            print("-" * 80)
+            print(f"Severity: {analysis['drift_analysis']['severity']:.2f}")
+            print(f"Alerts: {', '.join(analysis['drift_analysis']['alerts'])}")
+        
+        print("\nRECOMMENDATIONS FOR DECISION-MAKERS:")
+        print("-" * 80)
+        for i, rec in enumerate(analysis['recommendations'], 1):
+            print(f"{i}. {rec}\n")
+        
+        print("="*80)
+        print("CRITICAL REMINDER:")
+        print("This AI provides ANALYSIS, not DECISIONS.")
+        print("Human decision-makers must:")
+        print("  • Evaluate all trade-offs in context")
+        print("  • Justify choices when ignoring higher-scored alternatives")
+        print("  • Ensure reversibility for irreversible-risk interventions")
+        print("  • Preserve baselines and agency where possible")
+        print("="*80 + "\n")
+    
+    def get_audit_trail(self) -> List[Dict]:
+        """Return complete audit trail of all analyses"""
+        return self.analysis_history
+    
+    def export_audit_trail(self, filename: str):
+        """Export audit trail to JSON"""
+        with open(filename, 'w') as f:
+            json.dump(self.analysis_history, f, indent=2, default=str)
+        print(f"Audit trail exported to {filename}")
+
+
+# ============================================================================
+# PART 5: EXAMPLE USAGE / DEMONSTRATION
+# ============================================================================
+
+def create_example_cyber_crisis_comparison():
+    """
+    Example: Comparing institutional vs distributed resilience approaches
+    to cyber crisis (from your Distributed Resilience framework)
+    """
+    print("\n" + "="*80)
+    print("EXAMPLE: CYBER CRISIS RESPONSE COMPARISON")
+    print("Institutional (Cyber Polygon) vs Distributed Resilience")
+    print("="*80 + "\n")
+    
+    # Institutional solution (Cyber Polygon approach)
+    institutional = Solution(
+        name="Centralized Cyber Response (Cyber Polygon)",
+        source="institutional",
+        description="CBDC-based transactions, centralized digital ID, top-down coordination",
+        
+        baseline_impact=BaselineMetrics(
+            # Political baseline
+            sunset_ratio=0.2,  # Emergency powers tend to become permanent
+            exit_options=0.3,  # Limited alternatives during crisis
+            accountability_lag=0.4,  # Decisions made at distance from consequences
+            narrative_plurality=0.5,  # Concentrated information control
+            revocability_score
+=0.3,  # Hard to reverse centralized infrastructure
+# Economic baseline
+        wage_ratio=0.6,  # Not directly impacted
+        debt_independence=0.5,  # CBDC creates dependencies
+        recovery_time=0.4,  # Centralized systems slow to restore
+        market_concentration=0.4,  # Concentration increases during crisis
+        productive_decoupling=0.5,
+        
+        # Crisis response baseline
+        ciat=0.7,  # Can restore infrastructure quickly
+        pti=0.4,  # Trust erodes under centralized control
+        sar=0.3   # Regional coordination possible
+    ),
+    
+    coherence_assessment=CoherenceMetrics(
+        stated_objective="Restore critical infrastructure and transaction capacity",
+        observed_behavior="Centralized control with permanent digital infrastructure",
+        statement_action_divergence=0.3,  # Some divergence (temporary → permanent)
+        resource_allocation_alignment=0.7,  # Resources match stated goal
+        temporal_consistency=0.6,  # Consistent approach over time
+        behavior_variance=0.2  # Low variance (predictable)
+    ),
+    
+    agency_impact=AgencyMetrics(
+        human_decision_authority=0.3,  # Centralized decision-making
+        appeal_mechanism_access=0.2,  # Limited appeals during crisis
+        exit_capacity=0.2,  # Hard to opt out of CBDC/digital ID
+        alternative_availability=0.1,  # No alternatives provided
+        problem_space_input=0.1,  # Top-down design
+        forced_comparison=0.0,  # No alternatives compared
+        opt_in_vs_mandatory=0.1,  # Largely mandatory
+        informed_consent_quality=0.4
+    ),
+    
+    reversibility_score=0.3,  # Infrastructure becomes permanent
+    time_to_reversal=730.0,  # ~2 years to unwind
+    reversal_cost=1000000.0,  # High cost to reverse
+    implementation_complexity=0.8,  # Complex system
+    resource_requirements={'funding': 1000000.0, 'staff': 500, 'time_days': 180}
+)
+
+# Problem-space alternative (Distributed Resilience)
+distributed = Solution(
+    name="Distributed Resilience Framework",
+    source="problem_space",
+    description="Local trade vouchers, community verification nodes, trust-aware metrics",
+    
+    baseline_impact=BaselineMetrics(
+        # Political baseline
+        sunset_ratio=0.9,  # Automatic sunset when CIAT ≥ 85%
+        exit_options=0.8,  # Multiple pathways maintained
+        accountability_lag=0.8,  # Local decision-makers experience consequences
+        narrative_plurality=0.7,  # Decentralized information
+        revocability_score=0.9,  # Designed to phase out
+        
+        # Economic baseline
+        wage_ratio=0.7,  # Not directly impacted
+        debt_independence=0.7,  # No leverage dependency created
+        recovery_time=0.7,  # Fast local recovery
+        market_concentration=0.7,  # Prevents concentration
+        productive_decoupling=0.6,
+        
+        # Crisis response baseline
+        ciat=0.6,  # Slower initial coordination
+        pti=0.8,  # High trust in local systems
+        sar=0.2   # Low systemic stress (distributed)
+    ),
+    
+    coherence_assessment=CoherenceMetrics(
+        stated_objective="Maintain transaction capacity while preserving local agency",
+        observed_behavior="Distributed systems with automatic sunset provisions",
+        statement_action_divergence=0.1,  # High coherence
+        resource_allocation_alignment=0.9,  # Resources match goals
+        temporal_consistency=0.8,  # Consistent approach
+        behavior_variance=0.1  # Very low variance
+    ),
+    
+    agency_impact=AgencyMetrics(
+        human_decision_authority=0.8,  # Local control maintained
+        appeal_mechanism_access=0.7,  # Community appeals available
+        exit_capacity=0.8,  # Can opt for different verification methods
+        alternative_availability=0.8,  # Multiple options preserved
+        problem_space_input=0.9,  # Designed by problem-space actors
+        forced_comparison=0.8,  # Explicitly compared to institutional
+        opt_in_vs_mandatory=0.7,  # Largely voluntary participation
+        informed_consent_quality=0.8
+    ),
+    
+    reversibility_score=0.9,  # Designed to phase out automatically
+    time_to_reversal=14.0,  # 2 weeks after CIAT restoration
+    reversal_cost=50000.0,  # Low cost to unwind
+    implementation_complexity=0.4,  # Simpler, modular design
+    resource_requirements={'funding': 100000.0, 'staff': 50, 'time_days': 30}
+)
+
+# Initialize Triadic Governance AI
+ai = TriadicGovernanceAI(
+    optimization_weights={
+        'coherence': 0.30,
+        'baseline': 0.40,  # Prioritize baseline preservation
+        'agency': 0.30
+    },
+    baseline_threshold=0.5,
+    coherence_threshold=0.6
+)
+
+# Perform analysis
+analysis = ai.analyze_decision(
+    institutional_solution=institutional,
+    problem_space_alternatives=[distributed],
+    context={
+        'scenario': 'Cascading cyber attack on financial infrastructure',
+        'urgency': 'high',
+        'affected_population': 25000000,
+        'decision_timeline': '30 days'
+    },
+    verbose=True
+)
+
+return ai, analysis
+def create_example_ai_governance_comparison():
+"""
+Example: AI governance approaches
+Institutional regulatory capture vs Triadic governance
+"""
+print("\n" + "="*80)
+print("EXAMPLE: AI GOVERNANCE COMPARISON")
+print("Traditional Regulation vs Triadic Governance")
+print("="*80 + "\n")
+# Institutional approach
+traditional_regulation = Solution(
+    name="Traditional AI Regulatory Framework",
+    source="institutional",
+    description="Government agencies regulate AI companies, oversight boards, compliance requirements",
+    
+    baseline_impact=BaselineMetrics(
+        sunset_ratio=0.3,
+        exit_options=0.4,
+        accountability_lag=0.3,
+        narrative_plurality=0.5,
+        revocability_score=0.4,
+        wage_ratio=0.6,
+        debt_independence=0.6,
+        recovery_time=0.5,
+        market_concentration=0.3,  # Regulatory capture concentrates power
+        productive_decoupling=0.5,
+        ciat=0.7,
+        pti=0.5,
+        sar=0.3
+    ),
+    
+    coherence_assessment=CoherenceMetrics(
+        stated_objective="Ensure AI safety and accountability",
+        observed_behavior="Regulatory capture, optimize for institutional continuity",
+        statement_action_divergence=0.4,  # Moderate divergence
+        resource_allocation_alignment=0.6,
+        temporal_consistency=0.5,
+        behavior_variance=0.3
+    ),
+    
+    agency_impact=AgencyMetrics(
+        human_decision_authority=0.5,
+        appeal_mechanism_access=0.4,
+        exit_capacity=0.3,
+        alternative_availability=0.3,
+        problem_space_input=0.2,  # Consultation only
+        forced_comparison=0.1,  # Rarely done
+        opt_in_vs_mandatory=0.3,
+        informed_consent_quality=0.5
+    ),
+    
+    reversibility_score=0.4,
+    time_to_reversal=365.0,
+    reversal_cost=500000.0,
+    implementation_complexity=0.7,
+    resource_requirements={'funding': 500000.0, 'staff': 200, 'time_days': 365}
+)
+
+# Triadic governance approach
+triadic_ai_governance = Solution(
+    name="Triadic AI Governance Framework",
+    source="problem_space",
+    description="Forced comparison: institutional + problem-space + coherence AI analysis",
+    
+    baseline_impact=BaselineMetrics(
+        sunset_ratio=0.8,  # Regular review cycles
+        exit_options=0.7,  # Multiple governance approaches allowed
+        accountability_lag=0.7,  # Visible trade-offs create pressure
+        narrative_plurality=0.8,  # Three independent voices
+        revocability_score=0.8,  # Designed for adaptation
+        wage_ratio=0.7,
+        debt_independence=0.7,
+        recovery_time=0.7,
+        market_concentration=0.6,  # Prevents monopoly of logic
+        productive_decoupling=0.6,
+        ciat=0.7,
+        pti=0.8,  # Higher trust from transparency
+        sar=0.2
+    ),
+    
+    coherence_assessment=CoherenceMetrics(
+        stated_objective="Prevent AI governance capture while enabling safety",
+        observed_behavior="Forced comparison prevents closed loops",
+        statement_action_divergence=0.1,  # High coherence
+        resource_allocation_alignment=0.9,
+        temporal_consistency=0.8,
+        behavior_variance=0.1
+    ),
+    
+    agency_impact=AgencyMetrics(
+        human_decision_authority=0.9,  # Humans decide after seeing comparison
+        appeal_mechanism_access=0.8,  # Problem-space actors can propose alternatives
+        exit_capacity=0.7,  # Can choose different governance approaches
+        alternative_availability=0.9,  # Multiple approaches documented
+        problem_space_input=0.9,  # Structural role in governance
+        forced_comparison=1.0,  # This is the mechanism
+        opt_in_vs_mandatory=0.6,
+        informed_consent_quality=0.9  # All trade-offs explicit
+    ),
+    
+    reversibility_score=0.9,
+    time_to_reversal=90.0,
+    reversal_cost=10000.0,
+    implementation_complexity=0.3,  # Simpler architecture
+    resource_requirements={'funding': 50000.0, 'staff': 10, 'time_days': 60}
+)
+
+ai = TriadicGovernanceAI(
+    optimization_weights={'coherence': 0.33, 'baseline': 0.33, 'agency': 0.34}
+)
+
+analysis = ai.analyze_decision(
+    institutional_solution=traditional_regulation,
+    problem_space_alternatives=[triadic_ai_governance],
+    context={
+        'scenario': 'AI governance framework for frontier models',
+        'urgency': 'medium',
+        'affected_population': 'global',
+        'decision_timeline': '180 days'
+    },
+    verbose=True
+)
+
+return ai, analysis
+def demonstrate_drift_detection():
+"""
+Demonstrate drift detection over time as baselines erode
+"""
+print("\n" + "="*80)
+print("DEMONSTRATION: DRIFT DETECTION")
+print("Simulating gradual baseline erosion over 10 decision cycles")
+print("="*80 + "\n")
+ai = TriadicGovernanceAI()
+
+# Simulate decisions over time with gradual baseline erosion
+for cycle in range(1, 11):
+    # Baseline gradually erodes
+    baseline_score = max(0.8 - (cycle * 0.08), 0.1)
+    # Coherence also degrades as system drifts
+    coherence_score = max(0.9 - (cycle * 0.06), 0.3)
+    # Agency reduces as automation increases
+    agency_score = max(0.8 - (cycle * 0.07), 0.2)
+    
+    ai.drift_detector.update(baseline_score, coherence_score, agency_score)
+    
+    print(f"\nCycle {cycle}:")
+    print(f"  Baseline: {baseline_score:.2f}")
+    print(f"  Coherence: {coherence_score:.2f}")
+    print(f"  Agency: {agency_score:.2f}")
+    
+    if cycle >= 3:  # Need minimum data for drift detection
+        drift = ai.drift_detector.detect_drift()
+        if drift['drift_detected']:
+            print(f"  ⚠️  DRIFT DETECTED - Severity: {drift['severity']:.2f}")
+            print(f"  Alerts: {', '.join(drift['alerts'])}")
+
+# Final drift analysis
+print("\n" + "-"*80)
+print("FINAL DRIFT ANALYSIS:")
+print("-"*80)
+final_drift = ai.drift_detector.detect_drift()
+
+for rec in final_drift['recommendations']:
+    print(f"\n• {rec}")
+
+print("\n" + "="*80 + "\n")
+def run_comprehensive_demo():
+"""Run all demonstrations"""
+print("\n" + "="*80)
+print("TRIADIC GOVERNANCE AI - COMPREHENSIVE DEMONSTRATION")
+print("="*80)
+print("\nThis AI optimizes for:")
+print("  1. Coherence (alignment between claims and actions)")
+print("  2. Baseline Preservation (reversibility, optionality, resilience)")
+print("  3. Human Agency (meaningful choice and decision authority)")
+print("\nIt does NOT make decisions - it provides structural analysis")
+print("to enable better human decision-making in triadic governance.")
+print("="*80)
+# Run examples
+print("\n\n")
+cyber_ai, cyber_analysis = create_example_cyber_crisis_comparison()
+
+print("\n\n")
+ai_gov_ai, ai_gov_analysis = create_example_ai_governance_comparison()
+
+print("\n\n")
+demonstrate_drift_detection()
+
+# Export audit trails
+print("\nExporting audit trails...")
+cyber_ai.export_audit_trail("triadic_governance_cyber_audit.json")
+ai_gov_ai.export_audit_trail("triadic_governance_ai_gov_audit.json")
+
+print("\n" + "="*80)
+print("DEMONSTRATION COMPLETE")
+print("="*80)
+print("\nKey Takeaways:")
+print("  • Problem-space solutions can match or exceed institutional quality")
+print("  • Forced comparison makes trade-offs explicit")
+print("  • Drift detection enables early intervention")
+print("  • System preserves human decision authority while providing analysis")
+print("  • All analyses are auditable and transparent")
+print("\nNext steps:")
+print("  • Review exported audit trails (JSON files)")
+print("  • Adapt for your specific governance context")
+print("  • Integrate with real decision-making processes")
+print("="*80 + "\n")
+============================================================================
+PART 6: CUSTOMIZATION UTILITIES
+============================================================================
+class GovernanceFrameworkBuilder:
+"""
+Utility to help build custom governance frameworks for specific domains.
+"""
+@staticmethod
+def create_custom_baseline_metrics(
+    domain: str,
+    metric_definitions: Dict[str, float]
+) -> BaselineMetrics:
+    """
+    Create custom baseline metrics for a specific domain.
+    
+    Example:
+    metrics = create_custom_baseline_metrics(
+        domain="healthcare",
+        metric_definitions={
+            'sunset_ratio': 0.7,
+            'exit_options': 0.6,
+            # ... etc
+        }
+    )
+    """
+    return BaselineMetrics(**metric_definitions)
+
+@staticmethod
+def create_solution_from_description(
+    name: str,
+    source: str,
+    description: str,
+    baseline_scores: Dict[str, float],
+    coherence_scores: Dict[str, float],
+    agency_scores: Dict[str, float],
+    reversibility: float,
+    complexity: float
+) -> Solution:
+    """
+    Simplified solution creation from high-level inputs.
+    """
+    baseline = BaselineMetrics(**baseline_scores)
+    
+    coherence = CoherenceMetrics(
+        stated_objective=coherence_scores.get('stated_objective', ''),
+        observed_behavior=coherence_scores.get('observed_behavior', ''),
+        statement_action_divergence=coherence_scores.get('divergence', 0.0),
+        resource_allocation_alignment=coherence_scores.get('resource_alignment', 0.5),
+        temporal_consistency=coherence_scores.get('consistency', 0.5),
+        behavior_variance=coherence_scores.get('variance', 0.3)
+    )
+    
+    agency = AgencyMetrics(**agency_scores)
+    
+    return Solution(
+        name=name,
+        source=source,
+        description=description,
+        baseline_impact=baseline,
+        coherence_assessment=coherence,
+        agency_impact=agency,
+        reversibility_score=reversibility,
+        implementation_complexity=complexity
+    )
+
+@staticmethod
+def quick_comparison(
+    institutional_name: str,
+    institutional_desc: str,
+    institutional_scores: Dict[str, float],
+    alternative_name: str,
+    alternative_desc: str,
+    alternative_scores: Dict[str, float]
+) -> Dict[str, Any]:
+    """
+    Quick comparison utility for rapid prototyping.
+    
+    Each scores dict should have keys:
+    - baseline, coherence, agency, reversibility, complexity
+    """
+    # Create simplified solutions
+    inst = Solution(
+        name=institutional_name,
+        source="institutional",
+        description=institutional_desc,
+        baseline_impact=BaselineMetrics(),
+        coherence_assessment=CoherenceMetrics(),
+        agency_impact=AgencyMetrics(),
+        reversibility_score=institutional_scores.get('reversibility', 0.5),
+        implementation_complexity=institutional_scores.get('complexity', 0.5)
+    )
+    
+    # Manually set aggregate scores for quick comparison
+    inst.baseline_impact.sunset_ratio = institutional_scores.get('baseline', 0.5)
+    inst.coherence_assessment.statement_action_divergence = 1 - institutional_scores.get('coherence', 0.5)
+    inst.agency_impact.human_decision_authority = institutional_scores.get('agency', 0.5)
+    
+    alt = Solution(
+        name=alternative_name,
+        source="problem_space",
+        description=alternative_desc,
+        baseline_impact=BaselineMetrics(),
+        coherence_assessment=CoherenceMetrics(),
+        agency_impact=AgencyMetrics(),
+        reversibility_score=alternative_scores.get('reversibility', 0.5),
+        implementation_complexity=alternative_scores.get('complexity', 0.5)
+    )
+    
+    alt.baseline_impact.sunset_ratio = alternative_scores.get('baseline', 0.5)
+    alt.coherence_assessment.statement_action_divergence = 1 - alternative_scores.get('coherence', 0.5)
+    alt.agency_impact.human_decision_authority = alternative_scores.get('agency', 0.5)
+    
+    # Run comparison
+    ai = TriadicGovernanceAI()
+    return ai.analyze_decision(inst, [alt], verbose=True)
+============================================================================
+MAIN EXECUTION
+============================================================================
+if name == "main":
+"""
+Run comprehensive demonstration of Triadic Governance AI system.
+This demonstrates:
+1. Cyber crisis response comparison
+2. AI governance framework comparison
+3. Drift detection over time
+4. Audit trail export
+"""
+run_comprehensive_demo()
+
+print("\n" + "="*80)
+print("TRIADIC GOVERNANCE AI - SYSTEM READY")
+print("="*80)
+print("\nTo use in your own context:")
+print("\n  from triadic_governance_ai import TriadicGovernanceAI, Solution")
+print("  from triadic_governance_ai import BaselineMetrics, CoherenceMetrics, AgencyMetrics")
+print("\n  # Create your solutions")
+print("  institutional = Solution(...)")
+print("  alternative = Solution(...)")
+print("\n  # Initialize AI")
+print("  ai = TriadicGovernanceAI()")
+print("\n  # Perform analysis")
+print("  analysis = ai.analyze_decision(institutional, [alternative])")
+print("\n  # Export audit trail")
+print("  ai.export_audit_trail('my_governance_audit.json')")
+print("\n" + "="*80)
+print("\nHash for verification:")
+print("SHA-256: [Generate after finalizing code]")
+print("="*80 + "\n")
+---
+
+
+
+
+Hash for code
+
+bcf732fd70160f2969a651d032520ec0b0d05e3933836187ffec8a87e6336fce
